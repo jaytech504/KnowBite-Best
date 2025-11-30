@@ -1,0 +1,7 @@
+/bite
+*.env
+*.log
+logs/
+*.sqlite3
+*.mp4
+*.pdf

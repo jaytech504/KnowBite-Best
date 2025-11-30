@@ -1,0 +1,87 @@
+{% extends 'result/base_result.html' %}
+{% load markdownify %}
+{% block result %}
+<div class="container-fluid p-0 summary-cont">
+    <div class="row g-0 h-100" id="resizable-layout">
+      <!-- Summary Section -->
+      <div id="summary-section" class="h-100 overflow-hidden d-flex flex-column">
+          <div class="summary-header d-flex justify-content-between align-items-center p-3 border-bottom">
+            <h5 class="m-0 text-primary">
+              <i data-feather="file-text" class="feather-icon me-2"></i>
+              Summary
+            </h5>
+            <button id="regenerateBtn" class="btn btn-regenerate btn-sm">
+              <span class="icon">⟳</span>
+              Regenerate
+            </button>
+          </div>
+        <div class="summary-text flex-grow-1 overflow-auto p-3" id="summaryContent">
+          {{ summary | safe }}
+        </div>
+      </div>
+  
+      <!-- Resizable Handle -->
+      <div class="resize-handle" style="width: 8px; cursor: col-resize;"></div>
+  
+      <!-- Chatbot Section - Hidden on Mobile -->
+      <div id="chatbot-section" class="h-100 d-flex flex-column chatbot-sec">
+        <div class="chat-header d-flex justify-content-between align-items-center p-3 border-bottom">
+          <h5 class="m-0 text-primary">
+            <i data-feather="message-circle" class="feather-icon me-2"></i>
+            AI Assistant
+          </h5>
+        </div>
+        <div id="chat-messages" class="flex-grow-1 overflow-auto p-3">
+          {% for message in chat_history %}
+            <div class="message {{ message.role }} mb-3">
+              <div class="message-content">
+                {{ message.formatted_content|safe }}
+              </div>
+              <small class="message-time text-muted">{{ message.timestamp|default:"" }}</small>
+            </div>
+          {% empty %}
+            <div class="text-center text-muted my-5">
+              <i data-feather="message-square" class="feather-icon mb-2" style="width: 48px; height: 48px;"></i>
+              <p>No chat history yet. Ask me about the summary!</p>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="chat-input p-3 border-top bg-light">
+          <div class="input-group">
+            <input type="text" id="user-message" class="form-control" placeholder="Ask me about the summary..." aria-label="Chat message">
+            <button id="send-button" class="btn btn-primary" type="button">
+              <i data-feather="send" class="feather-icon"></i>
+            </button>
+          </div>
+          <div id="loading-indicator" class="mt-2 text-muted small" style="display: none;">
+            <div class="d-flex align-items-center">
+              <div class="spinner-border spinner-border-sm me-2" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              Generating response...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Regenerate Confirmation Dialog -->
+  <div id="regenerateConfirm" class="modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Regenerate Summary</h5>
+          <button type="button" class="btn-close" id="cancelRegenerate"></button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to regenerate the summary? This will create a new version.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelRegenerate">Cancel</button>
+          <button id="confirmRegenerate" class="btn btn-primary">Yes, Regenerate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
