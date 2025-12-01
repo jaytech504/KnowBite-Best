@@ -41,40 +41,53 @@ def upload_file(request):
                 messages.error(request, "YouTube URL is required")
                 return redirect('dashboard')
             
-            # Check YouTube upload limits
-            import yt_dlp
+            # --- NEW: Use TranscriptAPI instead of yt-dlp ---
+            import requests
             import os
-            import shutil  # <--- Added this to copy the file
             
             try:
-                # --- FIX START: Copy cookies to /tmp/ ---
-                secrets_path = "/etc/secrets/cookies.txt"
-                writable_cookies_path = "/tmp/cookies.txt"
+                # 1. Setup API Request
+                API_KEY = os.getenv('API_KEY', 'sk_x_pq215sTsEweVptvuLwXWaQfSSQsosPvhKJOHreUsg')
+                url = 'https://transcriptapi.com/api/v2/youtube/transcript'
+                params = {'video_url': youtube_link, 'format': 'json'}
                 
-                ydl_opts = {
-                    'quiet': True,
-                    'extract_flat': True,
-                    'force_generic_extractor': True,
-                    'no_warnings': True,
-                    'nocheckcertificate': True,
-                }
+                # 2. Call API
+                # This gets Title, Duration, AND Transcript in one go (fast!)
+                response = requests.get(
+                    url, 
+                    params=params, 
+                    headers={'Authorization': 'Bearer ' + API_KEY}, 
+                    timeout=30
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                # 3. Extract Metadata
+                title = data.get('metadata', {}).get('title', 'Unknown Title')
+                transcript_segments = data.get('transcript', [])
+                
+                # 4. Calculate Duration
+                # The API doesn't give total duration directly, so we calculate it:
+                # Duration = Start time of last sentence + Duration of last sentence
+                if transcript_segments:
+                    last_segment = transcript_segments[-1]
+                    total_seconds = last_segment.get('start', 0) + last_segment.get('duration', 0)
+                    duration_min = total_seconds / 60
+                else:
+                    duration_min = 0 # Empty video
+                
+                # Debug print to verify
+                print(f"Title: {title}, Duration: {duration_min} mins")
 
-                # Check if the secret file exists
-                if os.path.exists(secrets_path):
-                    # Copy it to /tmp/ so yt-dlp can write to it if needed
-                    shutil.copyfile(secrets_path, writable_cookies_path)
-                    ydl_opts['cookiefile'] = writable_cookies_path
-                # --- FIX END ---
-
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(youtube_link, download=False)
-                    duration_min = info.get('duration', 0) / 60
-                    title = info.get('title', 'Unknown Title')
-                    
-                    can_upload, message = user_subscription.can_upload_file('youtube', duration_min=duration_min)
-                    if not can_upload:
-                        messages.error(request, message)
-                        return redirect('dashboard')
+                # 5. Check Subscription Limits
+                can_upload, message = user_subscription.can_upload_file('youtube', duration_min=duration_min)
+                if not can_upload:
+                    messages.error(request, message)
+                    return redirect('dashboard')
+                
+                # 6. Prepare transcript text 
+                # (Since we already paid for the API call, let's grab the text now!)
+                full_transcript_text = " ".join([t.get('text', '') for t in transcript_segments])
 
             except Exception as e:
                 messages.error(request, f"Error processing YouTube link: {str(e)}")
@@ -86,7 +99,9 @@ def upload_file(request):
                     file_type='youtube',
                     youtube_link=youtube_link,
                     file=None,
-                    title=title
+                    title=title,
+                    # If your model has a text field, save it now so you don't have to call the API again!
+                    # transcript_text=full_transcript_text 
                 )
                 messages.success(request, "YouTube link saved successfully")
                 return redirect('summary', file_id=uploaded_file.id)

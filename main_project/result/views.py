@@ -684,98 +684,39 @@ def transcribe_audio_assemblyai(audio_file_path):
         return f"Transcription error: {e}"
 
 
-import os
-import uuid
-import shutil  # <--- Required for copying the file
-import yt_dlp
 
 def download_and_transcribe_youtube(video_url):
     """
-    Downloads audio from a YouTube URL to the Render /tmp/ directory,
-    uses cookies to avoid bot detection, gets the transcript, 
-    and deletes the audio file.
+    Fetches the transcript from the API and returns ONLY the full text string.
+    Returns None if an error occurs.
     """
+    API_KEY = os.getenv('TRANSCRIPTAPI_KEY')
+    url = 'https://transcriptapi.com/api/v2/youtube/transcript'
+    params = {'video_url': video_url, 'format': 'json'}
     
-    # 1. SETUP PATHS
-    unique_id = uuid.uuid4()
-    
-    # Render requires we write to /tmp/
-    temp_filename_base = f"/tmp/audio_{unique_id}"
-    
-    # Path to the 'Secret File' (Read-Only)
-    secrets_path = "/etc/secrets/cookies.txt"
-    # Path where we will copy it (Writable)
-    writable_cookies_path = f"/tmp/cookies_{unique_id}.txt"
-
-    # 2. CONFIGURE YT-DLP
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-        'outtmpl': temp_filename_base, 
-        'quiet': True,
-        'no_warnings': True,
-        'nocheckcertificate': True,
-    }
-
-    # --- FIX: Copy cookies to /tmp/ ---
-    if os.path.exists(secrets_path):
-        try:
-            shutil.copyfile(secrets_path, writable_cookies_path)
-            ydl_opts['cookiefile'] = writable_cookies_path
-        except Exception as e:
-            print(f"Warning: Could not copy cookies to temp folder: {e}")
-    else:
-        print("WARNING: cookies.txt not found at /etc/secrets/. YouTube may block the download.")
-    # ----------------------------------
-
-    # The actual file created will have .mp3 appended
-    final_audio_path = f"{temp_filename_base}.mp3"
-
     try:
-        print(f"Starting download for: {video_url}")
+        response = requests.get(
+            url, 
+            params=params, 
+            headers={'Authorization': 'Bearer ' + API_KEY}, 
+            timeout=30
+        )
+        response.raise_for_status()
         
-        # 3. DOWNLOAD AUDIO
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([video_url])
-
-        # Verify file exists
-        if not os.path.exists(final_audio_path):
-            raise FileNotFoundError(f"Download failed, file not found at {final_audio_path}")
-
-        print("Audio downloaded successfully. Starting transcription...")
-
-        # 4. PROCESS TRANSCRIPT
-        # Pass the file path to your existing AssemblyAI function
-        transcript_result = transcribe_audio_assemblyai(final_audio_path)
+        data = response.json()
+        transcript_segments = data.get('transcript', [])
         
-        return transcript_result
+        if not transcript_segments:
+            return None
 
-    except yt_dlp.utils.DownloadError as e:
-        print(f"YouTube Download Error: {e}")
-        return {"error": "Could not download video. It might be private or restricted."}
+        # Join all segments into one continuous string
+        full_text = " ".join([item.get('text', '') for item in transcript_segments])
         
+        return full_text
+
     except Exception as e:
-        print(f"General Error: {e}")
-        return {"error": str(e)}
-
-    finally:
-        # 5. CLEANUP
-        # Delete audio file
-        if os.path.exists(final_audio_path):
-            os.remove(final_audio_path)
-            print(f"Cleanup: Deleted audio {final_audio_path}")
-            
-        # Delete the temporary cookie file we created
-        if os.path.exists(writable_cookies_path):
-            try:
-                os.remove(writable_cookies_path)
-                print(f"Cleanup: Deleted temp cookies {writable_cookies_path}")
-            except:
-                pass
+        print(f"Error fetching transcript: {e}")
+        return None
 
 @login_required
 def transcripts(request, file_id):
