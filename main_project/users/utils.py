@@ -4,7 +4,7 @@ import resend
 resend.api_key = settings.RESEND_API_KEY
 def send_welcome_email(user):
     resend.Emails.send({
-        "from": "Knowbite <onboarding@resend.dev>",
+        "from": "Knowbite <knowbite.fun>",
         "to": [user.email],
         "subject": "🎉Welcome to KnowBite",
         "html": f"""<h2>Welcome { user.username }!</h2>
@@ -14,7 +14,7 @@ def send_welcome_email(user):
 
 def send_login_notification(user):
     resend.Emails.send({
-        "from": "Knowbite <onboarding@resend.dev>",
+        "from": "Knowbite <knowbite.fun>",
         "to": [user.email],
         "subject": "🎉Login alert from KnowBite",
         "html": f"""<h2>Hey { user.username }!</h2>
