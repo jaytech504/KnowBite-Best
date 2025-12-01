@@ -340,7 +340,7 @@ def generate_or_retrieve_summary(request, uploaded_file):
         except Exception as e:
             print(f"Error getting plan type: {e}")          # Define chunk size based on plan type
        
-        chunk_size = 3500
+        chunk_size = 5000
         if len(extracted_text) > chunk_size:
             print(f"Text length {len(extracted_text)} exceeds {chunk_size} chars, splitting into chunks")
             chunks = split_text(extracted_text, max_chars=chunk_size)
