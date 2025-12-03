@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from .forms import FileUploadForm
-from .models import UploadedFile
+from .models import UploadedFile, ExtractedText
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -41,18 +41,40 @@ def upload_file(request):
                 messages.error(request, "YouTube URL is required")
                 return redirect('dashboard')
             
-            # --- NEW: Use TranscriptAPI instead of yt-dlp ---
             import requests
             import os
+            import re
             
             try:
-                # 1. Setup API Request
+                # 1. Extract video ID from URL
+                def extract_video_id(url):
+                    patterns = [
+                        r'(?:v=|\/)([0-9A-Za-z_-]{11}).*',
+                        r'(?:embed\/)([0-9A-Za-z_-]{11})',
+                        r'^([0-9A-Za-z_-]{11})$'
+                    ]
+                    for pattern in patterns:
+                        match = re.search(pattern, url)
+                        if match:
+                            return match.group(1)
+                    return None
+                
+                video_id = extract_video_id(youtube_link)
+                if not video_id:
+                    messages.error(request, "Invalid YouTube URL")
+                    return redirect('dashboard')
+                
+                # 2. Get title from YouTube oEmbed (no API key needed!)
+                oembed_url = f'https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json'
+                oembed_response = requests.get(oembed_url, timeout=10)
+                oembed_response.raise_for_status()
+                title = oembed_response.json().get('title', 'Untitled Video')
+                
+                # 3. Get transcript from TranscriptAPI
                 API_KEY = os.getenv('API_KEY', 'sk_x_pq215sTsEweVptvuLwXWaQfSSQsosPvhKJOHreUsg')
                 url = 'https://transcriptapi.com/api/v2/youtube/transcript'
                 params = {'video_url': youtube_link, 'format': 'json'}
                 
-                # 2. Call API
-                # This gets Title, Duration, AND Transcript in one go (fast!)
                 response = requests.get(
                     url, 
                     params=params, 
@@ -61,23 +83,17 @@ def upload_file(request):
                 )
                 response.raise_for_status()
                 data = response.json()
-                print(data)
-                print(data.keys())
-                # 3. Extract Metadata
-                title = data.get('metadata', {}).get('title', 'Untitled Video')
+                
                 transcript_segments = data.get('transcript', [])
                 
                 # 4. Calculate Duration
-                # The API doesn't give total duration directly, so we calculate it:
-                # Duration = Start time of last sentence + Duration of last sentence
                 if transcript_segments:
                     last_segment = transcript_segments[-1]
                     total_seconds = last_segment.get('start', 0) + last_segment.get('duration', 0)
                     duration_min = total_seconds / 60
                 else:
-                    duration_min = 0 # Empty video
+                    duration_min = 0
                 
-                # Debug print to verify
                 print(f"Title: {title}, Duration: {duration_min} mins")
 
                 # 5. Check Subscription Limits
@@ -86,10 +102,9 @@ def upload_file(request):
                     messages.error(request, message)
                     return redirect('dashboard')
                 
-                # 6. Prepare transcript text 
-                # (Since we already paid for the API call, let's grab the text now!)
+                # 6. Prepare transcript text
                 full_transcript_text = " ".join([t.get('text', '') for t in transcript_segments])
-
+                
             except Exception as e:
                 messages.error(request, f"Error processing YouTube link: {str(e)}")
                 return redirect('dashboard')
@@ -104,6 +119,8 @@ def upload_file(request):
                     # If your model has a text field, save it now so you don't have to call the API again!
                     # transcript_text=full_transcript_text 
                 )
+
+                ExtractedText.objects.create(user=request.user, uploaded_file=uploaded_file, extracted_text=full_transcript_text)
                 messages.success(request, "YouTube link saved successfully")
                 return redirect('summary', file_id=uploaded_file.id)
             except Exception as e:

@@ -303,11 +303,7 @@ def generate_or_retrieve_summary(request, uploaded_file):
         try:
             # Text extraction step
             if is_youtube:
-                try:
-                    extracted_text = download_and_transcribe_youtube(uploaded_file.youtube_link)
-                except Exception as e:
-                    print(f"YouTube extraction error: {e}")
-                    return f"Error in YouTube extraction: {str(e)}"
+                print("Extracting YouTube transcript")
             else:
                 file_path = uploaded_file.file.path
                 try:
