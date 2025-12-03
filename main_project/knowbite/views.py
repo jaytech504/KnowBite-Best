@@ -61,7 +61,8 @@ def upload_file(request):
                 )
                 response.raise_for_status()
                 data = response.json()
-                
+                print(data)
+                print(data.keys())
                 # 3. Extract Metadata
                 title = data.get('metadata', {}).get('title', 'Untitled Video')
                 transcript_segments = data.get('transcript', [])
