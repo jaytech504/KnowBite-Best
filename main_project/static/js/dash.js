@@ -71,6 +71,17 @@ document.addEventListener('DOMContentLoaded', function () {
             // Form submission continues normally - will navigate to summary page after server processes
         });
     }
+
+    // Also attach listener to the hidden upload form to cover non-inline submit paths
+    const uploadForm = document.getElementById('upload-form');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function (e) {
+            // Show loading overlay and start upload-mode progress simulation
+            showLoading();
+            simulateProgress('upload');
+            // allow normal submission to continue (will navigate away)
+        });
+    }
 });
 
 function showYoutubeInput() {
@@ -216,7 +227,15 @@ function simulateProgress(mode = 'upload') {
 
 // YouTube form listener attached safely during DOMContentLoaded above
 
-// Optional: Hide loading when navigating away
-window.addEventListener('beforeunload', function () {
-    hideLoading();
+// When the document becomes hidden (navigation starts), set the bar to 100%
+// so the user sees a completed loading bar while the next page loads.
+document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') {
+        const progressBar = document.getElementById('upload-progress');
+        const progressText = document.getElementById('progress-text');
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressText) progressText.textContent = 'Loading...';
+        try { progressSimulator.stop(); } catch (e) { /* ignore */ }
+        // Do not hide the overlay here; the browser will navigate away and replace the page.
+    }
 });

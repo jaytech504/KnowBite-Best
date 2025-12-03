@@ -63,7 +63,7 @@ def upload_file(request):
                 data = response.json()
                 
                 # 3. Extract Metadata
-                title = data["metadata"]["title"]
+                title = data.get('metadata', {}).get('title', 'Untitled Video')
                 transcript_segments = data.get('transcript', [])
                 
                 # 4. Calculate Duration
