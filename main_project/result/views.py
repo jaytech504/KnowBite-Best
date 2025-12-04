@@ -159,6 +159,43 @@ Text: {text}
         print(f"Error in generate_summary_with_gemini: {str(e)}")
         return f"Error: Failed to generate summary - {str(e)}"
 
+
+def generate_with_retries(text, max_retries=4, initial_delay=2):
+    """Call generate_summary_with_gemini with retries on rate-limit (429) or transient errors.
+
+    Returns the summary string, or an error string starting with 'Error:' on non-retryable failures.
+    """
+    delay = initial_delay
+    for attempt in range(1, max_retries + 1):
+        result = generate_summary_with_gemini(text)
+
+        # If successful (not an error string), return it
+        if not (isinstance(result, str) and result.startswith('Error')):
+            return result
+
+        # Inspect the error message to decide whether to retry
+        err = result.lower()
+        retryable = False
+
+        # Common indicators of rate limit / transient errors
+        if '429' in err or 'rate' in err or 'rate limit' in err or 'too many requests' in err or 'quota' in err or 'temporar' in err:
+            retryable = True
+
+        if not retryable:
+            # Non-retryable error — return immediately
+            return result
+
+        # If we still have attempts left, sleep and retry
+        if attempt < max_retries:
+            print(f"Rate limit detected from Gemini, attempt {attempt}/{max_retries}. Backing off {delay}s...")
+            time.sleep(delay)
+            delay *= 2
+            continue
+        else:
+            print(f"Exceeded retries ({max_retries}) for Gemini rate limit.")
+            return result
+
+
 # If needed, support long text by summarizing in chunks.
 def split_text(text, max_chars=3000):
     return [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
@@ -353,27 +390,27 @@ def generate_or_retrieve_summary(request, uploaded_file):
             
             for i, chunk in enumerate(chunks, 1):
                 print(f"Processing chunk {i} of {len(chunks)}")
-                summary_chunk = generate_summary_with_gemini(chunk)
-                
-                if summary_chunk.startswith('Error:'):
+                summary_chunk = generate_with_retries(chunk, max_retries=4, initial_delay=2)
+
+                if isinstance(summary_chunk, str) and summary_chunk.startswith('Error:'):
                     print(f"Error in chunk {i}: {summary_chunk}")
                     return summary_chunk
-                    
+
                 chunk_summaries.append(summary_chunk)
                 time.sleep(1)  # Delay to avoid rate limits
             
             print(f"Generated {len(chunk_summaries)} chunk summaries")
             
             chunk_summaries = ' '.join(chunk_summaries)
-            combined_summary = generate_summary_with_gemini(chunk_summaries)
+            combined_summary = generate_with_retries(chunk_summaries, max_retries=4, initial_delay=2)
                 
-            if combined_summary.startswith('Error:'):
+            if isinstance(combined_summary, str) and combined_summary.startswith('Error:'):
                 print(f"Error combining summaries: {combined_summary}")
                 return combined_summary
                 
             summary = combined_summary
         else:
-            summary = generate_summary_with_gemini(extracted_text)
+            summary = generate_with_retries(extracted_text, max_retries=4, initial_delay=2)
     except Exception as e:
         print(f"Summary generation error: {e}")
         return f"Error generating summary: {str(e)}"
