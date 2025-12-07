@@ -24,7 +24,6 @@ from django.conf import settings
 from django.shortcuts import render, get_object_or_404, redirect
 from knowbite.models import UploadedFile, Summary, ChatMessage, ExtractedText, Quiz
 from django.utils.safestring import mark_safe
-import google.generativeai as genai
 from google import genai
 import assemblyai as aai
 
@@ -32,7 +31,6 @@ aai.settings.api_key = settings.ASSEMBLYAI_API_KEY
 # Set up Gemini API client  
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-model = genai.GenerativeModel("gemini-2.0-flash-lite")
 
 # Generation configuration for Gemini
 generation_config = {
@@ -145,7 +143,7 @@ Text: {text}
             return "Error: No text content available to summarize"
             
         response = client.models.generate_content(
-            model="gemini-2.0-flash-lite", contents=prompt, generation_config=generation_config
+            model="gemini-2.0-flash-lite", contents=prompt
         )
         
         if not response:
@@ -476,24 +474,42 @@ def handle_chat_request(request, uploaded_file):
         })
 
     try:
-        # Initialize model with system instruction
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash-lite",
-            system_instruction=system_instruction
-        )
-        chat = model.start_chat(history=history)
+        # Build a single prompt: system instruction + recent chat history + current user message
+        history_lines = []
+        for msg in reversed(history_messages):
+            role = 'User' if msg.role == 'user' else 'Assistant'
+            # Keep content short for prompt, but preserve formatting
+            history_lines.append(f"{role}: {msg.content}")
 
-        # Store user message
+        prompt_parts = [system_instruction]
+        if history_lines:
+            prompt_parts.append("Conversation history:")
+            prompt_parts.extend(history_lines)
+
+        prompt_parts.append(f"User: {user_message}")
+        full_prompt = "\n\n".join(prompt_parts)
+
+        # Persist the user's message to chat history
         ChatMessage.objects.create(
             user=request.user,
             file=uploaded_file,
             role='user',
             content=user_message
         )
-        
-        # Get response
-        response = chat.send_message(user_message)
-        bot_response = response.text
+
+        # Create a chat using the new genai client API and send the prompt
+        chat = client.chats.create(model='gemini-2.0-flash')
+        response = chat.send_message(message=full_prompt)
+
+        # Try common response attributes
+        bot_response = None
+        if hasattr(response, 'text') and response.text:
+            bot_response = response.text
+        elif hasattr(response, 'response') and response.response:
+            bot_response = response.response
+        else:
+            # Fallback to string representation
+            bot_response = str(response)
 
         # Store bot response
         ChatMessage.objects.create(
@@ -533,7 +549,9 @@ def generate_mcqs_with_gemini(summary_text, num_questions, difficulty):
     
     Summary: {summary_text}
     """
-    response = model.generate_content(prompt, generation_config=generation_config)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash-lite", contents=prompt
+    )
     return response.text if response.text else "No MCQs generated."
 
 
