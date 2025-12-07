@@ -31,7 +31,7 @@ aai.settings.api_key = settings.ASSEMBLYAI_API_KEY
 # Set up Gemini API client  
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
-model = genai.GenerativeModel("gemini-2.5-flash-lite")
+model = genai.GenerativeModel("gemini-2.0-flash")
 
 generation_config = {
     "temperature": 0.7,  # Adjust creativity level
@@ -373,7 +373,7 @@ def generate_or_retrieve_summary(request, uploaded_file):
         except Exception as e:
             print(f"Error getting plan type: {e}")          # Define chunk size based on plan type
        
-        chunk_size = 5000
+        chunk_size = 10000
         if len(extracted_text) > chunk_size:
             print(f"Text length {len(extracted_text)} exceeds {chunk_size} chars, splitting into chunks")
             chunks = split_text(extracted_text, max_chars=chunk_size)
