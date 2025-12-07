@@ -2,7 +2,7 @@
 {% load markdownify %}
 {% block result %}
 <div class="container-fluid p-0 chat-cont">
-<div id="chatbot-section" class="h-100 d-flex flex-column" style="flex: 0 0 400px; min-width: 300px;">
+<div id="chatbot-section-desktop" class="h-100 d-flex flex-column" style="flex: 0 0 400px; min-width: 300px;">
     <div id="chat-messages" class="flex-grow-1 overflow-auto p-3">
       {% for message in chat_history %}
         <div class="message {{ message.role }}">{{ message.formatted_content|safe }}</div>

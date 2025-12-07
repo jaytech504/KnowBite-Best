@@ -540,6 +540,16 @@ body.dark-mode .large-icon {
   transition: all 0.3s ease;
 }
 
+#chatbot-section-desktop {
+  flex: 0 0 400px;
+  min-width: 300px;
+  background: white;
+  border-radius: 12px;
+  margin: 0.2rem;
+  box-shadow: var(--shadow);
+  transition: all 0.3s ease;
+}
+
 .chat-header {
   background: white;
   border-radius: 12px 12px 0 0;
