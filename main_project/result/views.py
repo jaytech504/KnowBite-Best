@@ -25,14 +25,16 @@ from django.shortcuts import render, get_object_or_404, redirect
 from knowbite.models import UploadedFile, Summary, ChatMessage, ExtractedText, Quiz
 from django.utils.safestring import mark_safe
 import google.generativeai as genai
+from google import genai
 import assemblyai as aai
 
 aai.settings.api_key = settings.ASSEMBLYAI_API_KEY
 # Set up Gemini API client  
-genai.configure(api_key=settings.GEMINI_API_KEY)
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-model = genai.GenerativeModel("gemini-2.5-flash-lite")
+model = genai.GenerativeModel("gemini-2.0-flash-lite")
 
+# Generation configuration for Gemini
 generation_config = {
     "temperature": 0.7,  # Adjust creativity level
     "top_p": 0.9,
@@ -142,7 +144,9 @@ Text: {text}
             print("Error: Empty input text")
             return "Error: No text content available to summarize"
             
-        response = model.generate_content(prompt, generation_config=generation_config)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-lite", contents=prompt, generation_config=generation_config
+        )
         
         if not response:
             print("Error: No response from Gemini API")
