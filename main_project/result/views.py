@@ -31,7 +31,7 @@ aai.settings.api_key = settings.ASSEMBLYAI_API_KEY
 # Set up Gemini API client  
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
-model = genai.GenerativeModel("gemini-2.0-flash-lite")
+model = genai.GenerativeModel("gemini-2.5-flash-lite")
 
 generation_config = {
     "temperature": 0.7,  # Adjust creativity level
