@@ -392,7 +392,7 @@ def generate_or_retrieve_summary(request, uploaded_file):
             
             for i, chunk in enumerate(chunks, 1):
                 print(f"Processing chunk {i} of {len(chunks)}")
-                summary_chunk = generate_with_retries(chunk, max_retries=4, initial_delay=2)
+                summary_chunk = generate_summary_with_gemini(chunk)
 
                 if isinstance(summary_chunk, str) and summary_chunk.startswith('Error:'):
                     print(f"Error in chunk {i}: {summary_chunk}")
@@ -404,7 +404,7 @@ def generate_or_retrieve_summary(request, uploaded_file):
             print(f"Generated {len(chunk_summaries)} chunk summaries")
             
             chunk_summaries = ' '.join(chunk_summaries)
-            combined_summary = generate_with_retries(chunk_summaries, max_retries=4, initial_delay=2)
+            combined_summary = generate_summary_with_gemini(chunk_summaries)
                 
             if isinstance(combined_summary, str) and combined_summary.startswith('Error:'):
                 print(f"Error combining summaries: {combined_summary}")
@@ -412,7 +412,7 @@ def generate_or_retrieve_summary(request, uploaded_file):
                 
             summary = combined_summary
         else:
-            summary = generate_with_retries(extracted_text, max_retries=4, initial_delay=2)
+            summary = generate_summary_with_gemini(extracted_text)
     except Exception as e:
         print(f"Summary generation error: {e}")
         return f"Error generating summary: {str(e)}"
