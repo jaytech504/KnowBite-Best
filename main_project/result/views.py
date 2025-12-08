@@ -143,7 +143,7 @@ Text: {text}
             return "Error: No text content available to summarize"
             
         response = client.models.generate_content(
-            model="gemini-2.0-flash-lite", contents=prompt
+            model="gemini-2.5-flash", contents=prompt
         )
         
         if not response:
@@ -498,7 +498,7 @@ def handle_chat_request(request, uploaded_file):
         )
 
         # Create a chat using the new genai client API and send the prompt
-        chat = client.chats.create(model='gemini-2.0-flash-lite')
+        chat = client.chats.create(model='gemini-2.5-flash')
         response = chat.send_message(message=full_prompt)
 
         # Try common response attributes
@@ -550,7 +550,7 @@ def generate_mcqs_with_gemini(summary_text, num_questions, difficulty):
     Summary: {summary_text}
     """
     response = client.models.generate_content(
-        model="gemini-2.0-flash-lite", contents=prompt
+        model="gemini-2.5-flash", contents=prompt
     )
     return response.text if response.text else "No MCQs generated."
 
